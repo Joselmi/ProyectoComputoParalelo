@@ -33,7 +33,7 @@ El serial es la base contra la que se comparan las dos versiones paralelas, así
 
 En el paso 1, cada punto recorre los demás y cuenta sus vecinos, pero deja de contar en cuanto llega a min_samples, porque ya se sabe que es core y seguir contando no cambia el resultado. En el paso 2, cada ruido busca un core de primer orden cercano y deja de buscar en cuanto encuentra uno. Solo se compara contra cores de primer orden, nunca contra los de segundo orden. Así el resultado no depende del orden en que se recorren los puntos, y eso es lo que permite después paralelizar sin que cambien las etiquetas.
 
-El main hace el experimento. Recorre los 8 tamaños, y para cada uno lee los puntos, hace una corrida de calentamiento que no se mide, porque la primera corrida siempre tardaba más, y luego corre el algoritmo 10 veces y guarda el promedio en `datos/tiempos_serial_J.csv` o `_M`, según la letra que se le pase, lo cuál es un parámetro que utilizamos para distinguir la computadora donde se corrió el experimento. El tiempo se mide con clock() justo antes y justo después de llamar a `dbscanSerial`, así que la lectura y escritura de archivos no cuentan, porque eso no se paraleliza. Como el serial corre en un solo hilo, clock() equivale al tiempo real.
+El main hace el experimento. Recorre los 8 tamaños, y para cada uno lee los puntos, hace una corrida de calentamiento que no se mide, porque la primera corrida siempre tardaba más, y luego corre el algoritmo 10 veces y guarda el promedio en `datos/tiempos_serial_J.csv` o `_M`, según la letra que se le pase, lo cual es un parámetro que utilizamos para distinguir la computadora donde se corrió el experimento. El tiempo se mide con clock() justo antes y justo después de llamar a `dbscanSerial`, así que la lectura y escritura de archivos no cuentan, porque eso no se paraleliza. Como el serial corre en un solo hilo, clock() equivale al tiempo real.
 
 Para comprobar que el serial es correcto se comparó contra el DBSCAN de sklearn con los mismos parámetros. La comparación está en la tercera celda de `DBSCAN_noise_proyecto.ipynb` y el resultado está en la sección de Resultados.
 
@@ -63,7 +63,7 @@ Los tiempos de P1 y P2 se miden con omp_get_wtime(), que mide tiempo de reloj de
 ### P2: Paralelo dividido en particiones
 La idea de P2 es que en esta ocasión el plano se divide en k pedazos (particiones), y cada punto se compara contra los puntos de su propia partición y contra los de las particiones vecinas que estén cerca, en lugar de compararse contra todos. Sigue siendo el mismo algoritmo, solo cambia dónde busca y cómo se reparte el trabajo, y las etiquetas tienen que salir igual que en el serial.
 
-Para hacer esto, primero se calcula la cuadrícula: se convierte k en columnas x filas (2 es 2x1, 4 es 2x2, 8 es 4x2 y así hasta 64, que es 8x8), y se buscan los valores mínimos y máximos de x y de y para calcular qué tan ancha y qué tan alta es cada celda. Después a cada punto se le calcula su partición, y las particiones quedan numeradas de 0 a k - 1. Con eso, cada partición arma su propia lista de puntos: los que son suyos y también los de las particiones vecinas que caen a una distancia menor o igual a epsilon de su rectángulo, a los que llamamos el borde. De cada lista se guardan las coordenadas y el índice original del punto.
+Para hacer esto, primero se calcula la cuadrícula: se convierte k en columnas x filas (2 es 2x1, 4 es 2x2, 8 es 4x2 y así hasta 64, que es 8x8), y se buscan los valores mínimos y máximos de x y de y para calcular qué tan ancha y qué tan alta es cada celda. Después a cada punto se le calcula su partición, y las particiones quedan numeradas de 0 a k - 1. Con eso, cada partición arma su propia lista de puntos: los que son suyos y también los de las particiones vecinas que caen a una distancia menor o igual a epsilon de su rectángulo, a los que llamamos el borde (en el código se llama halo). De cada lista se guardan las coordenadas y el índice original del punto.
 
 El borde es necesario porque un punto cerca de la frontera puede tener vecinos en la partición de al lado, y si no los contamos se clasificaría mal. Cualquier vecino de un punto está a distancia epsilon o menos, así que siempre cae dentro del rectángulo de su partición agrandado por epsilon. Por eso la lista de cada partición contiene todos los vecinos posibles de sus puntos, no se pierde ninguno y las etiquetas coinciden con las del serial.
 
@@ -77,32 +77,32 @@ Por último, P2 puede ser más rápida incluso con un solo hilo. Probablemente p
 
 ## Resultados
 ### Equipos
-El experimento se corrió completo en dos computadoras. Para distinguirlas, todos los archivos de `datos` y `graficas` terminan con una letra: J para la computadora de Jose Luis y M para la de Miguel. Los programas reciben esa letra al ejecutarse, por ejemplo `.\dbscanP1.exe J`.
+El experimento se corrió completo en dos computadoras. Para distinguirlas, todos los archivos de `datos` y `graficas` terminan con una letra: J para la computadora de José Luis y M para la de Miguel. Los programas reciben esa letra al ejecutarse, por ejemplo `.\dbscanP1.exe J`. Además, cada gráfica se guarda también con las dos computadoras juntas, y esa termina con U de unión.
 
-* J: Intel Core i3 1115G4, con 2 núcleos físicos y 4 cores virtuales, Windows 10. Los hilos probados fueron 1, 2, 4 y 8.
-* M: AMD Ryzen AI 7 350, con 8 núcleos físicos y 16 cores virtuales (2 hilos por núcleo), 8 MB de caché L2 y 16 MB de L3, y 7 GB de RAM. Corre en Ubuntu dentro de WSL2 sobre Windows, con g++ 15.2.0. Los hilos probados fueron 1, 8, 16 y 32.
+* José Luis: Intel Core i3 1115G4, con 2 núcleos físicos y 4 cores virtuales, Windows 10, con g++ 16.1.0 de MSYS2. Los hilos probados fueron 1, 2, 4 y 8.
+* Miguel: AMD Ryzen AI 7 350, con 8 núcleos físicos y 16 cores virtuales (2 hilos por núcleo), 8 MB de caché L2 y 16 MB de L3, y 7 GB de RAM. Corre en Ubuntu dentro de WSL2 sobre Windows, con g++ 15.2.0. Los hilos probados fueron 1, 8, 16 y 32.
 
-Los programas se compilaron con `g++ -O2`, y P1 y P2 además con `-fopenmp`. En M también se usó `-ffp-contract=off`, y los programas se corrieron como `./dbscanSerial M`, `./dbscanP1 M` y `./dbscanP2 M`. Los hilos no están fijos en el código: cada programa mide los cores virtuales con `omp_get_num_threads()` y de ahí saca 1, la mitad, todos y el doble.
+Los programas se compilaron con `g++ -O2`, y P1 y P2 además con `-fopenmp`. En la computadora de Miguel también se usó `-ffp-contract=off`, y los programas se corrieron como `./dbscanSerial M`, `./dbscanP1 M` y `./dbscanP2 M`. Los hilos no están fijos en el código: cada programa mide los cores virtuales con `omp_get_num_threads()` y de ahí saca 1, la mitad, todos y el doble.
 
 ### Verificación
-Cada configuración compara sus etiquetas contra las del serial y avisa con un mismatch si hay diferencias. En J y en M ninguna configuración avisó mismatch en los 8 tamaños, con todos los valores de k y de hilos. Además, los archivos de resultados son idénticos entre los tres programas y entre las dos computadoras.
+Cada configuración compara sus etiquetas contra las del serial y avisa con un mismatch si hay diferencias. En las dos computadoras ninguna configuración avisó mismatch en los 8 tamaños, con todos los valores de k y de hilos. Además, los archivos de resultados son idénticos entre los tres programas y entre las dos computadoras.
 
-En todas las gráficas, la computadora J está a la izquierda y la M a la derecha.
+Aquí se muestran las gráficas unidas, donde la computadora de José Luis está a la izquierda y la de Miguel a la derecha. Las de cada computadora por separado están en `graficas` con J o M al final.
 
-![Clasificación P1 con 200000 puntos](graficas/clasificacion_p1_200000_M.png)
-![Clasificación P2 con 200000 puntos](graficas/clasificacion_p2_200000_M.png)
+![Clasificación P1 con 200000 puntos](graficas/clasificacion_p1_200000_U.png)
+![Clasificación P2 con 200000 puntos](graficas/clasificacion_p2_200000_U.png)
 
 ### Serial
 El tiempo crece casi en línea recta con el número de puntos, aunque el algoritmo compara todos contra todos. Esto pasa porque casi todos los puntos son core y dejan de buscar en cuanto encuentran sus 10 vecinos. Solo los pocos puntos de ruido recorren todo el arreglo.
 
-| Puntos | J (s) | M (s) |
+| Puntos | José Luis (s) | Miguel (s) |
 |---|---|---|
-| 20000 | 0.062 | 0.057 |
-| 80000 | 0.238 | 0.261 |
-| 120000 | 0.346 | 0.417 |
-| 200000 | 0.555 | 0.700 |
+| 20000 | 0.039 | 0.057 |
+| 80000 | 0.178 | 0.261 |
+| 120000 | 0.281 | 0.417 |
+| 200000 | 0.456 | 0.700 |
 
-![Tiempo serial](graficas/tiempo_serial_M.png)
+![Tiempo serial](graficas/tiempo_serial_U.png)
 
 Para comprobar que el serial da el resultado correcto, se comparó contra el DBSCAN de sklearn con los mismos parámetros, eps = 0.03 y min_samples = 10, usando los mismos archivos de puntos. sklearn marca el ruido con la etiqueta -1 y nuestro programa con 0, así que se comparó punto por punto si cada uno es ruido o no. Los cores de primer y de segundo orden de nuestro programa corresponden a los puntos que sklearn mete en algún cluster.
 
@@ -117,69 +117,69 @@ No hubo ninguna diferencia. Solo se usaron estos tres tamaños porque sklearn gu
 ### P1
 Speedup de P1 contra el serial con 200000 puntos:
 
-| J | 1 hilo | 2 hilos | 4 hilos | 8 hilos |
+| José Luis | 1 hilo | 2 hilos | 4 hilos | 8 hilos |
 |---|---|---|---|---|
-| Speedup | 0.94 | 1.52 | 2.03 | 2.04 |
+| Speedup | 0.98 | 1.72 | 2.01 | 2.01 |
 
-| M | 1 hilo | 8 hilos | 16 hilos | 32 hilos |
+| Miguel | 1 hilo | 8 hilos | 16 hilos | 32 hilos |
 |---|---|---|---|---|
 | Speedup | 0.99 | 4.45 | 5.40 | 7.20 |
 
-Con 1 hilo P1 tarda prácticamente lo mismo que el serial, lo cual tiene sentido porque es el mismo algoritmo. Con más hilos mejora hasta que se acaban los núcleos reales. En J el tope es de cerca de 2, porque solo tiene 2 núcleos físicos. Los 4 cores virtuales son esos 2 núcleos con dos hilos cada uno, que comparten recursos, por eso de 2 a 4 hilos se gana poco y con 8 ya no se gana nada. En M el speedup llega a 4.45 con 8 hilos (un hilo por núcleo físico), a 5.40 con 16 y a 7.20 con 32.
+Con 1 hilo P1 tarda prácticamente lo mismo que el serial, lo cual tiene sentido porque es el mismo algoritmo. En la computadora de José Luis, con más hilos mejora hasta que se acaban los núcleos reales, y el tope es de cerca de 2, porque solo tiene 2 núcleos físicos. Los 4 cores virtuales son esos 2 núcleos con dos hilos cada uno, que comparten recursos, por eso de 2 a 4 hilos se gana poco y con 8 ya no se gana nada. En la de Miguel el speedup llega a 4.45 con 8 hilos (un hilo por núcleo físico), a 5.40 con 16 y a 7.20 con 32.
 
-![Speedup P1](graficas/speedup_p1_M.png)
+![Speedup P1](graficas/speedup_p1_U.png)
 
 ### P2
 En P2 hay que separar dos efectos, el de k y el de los hilos.
 
-El efecto de k se ve con 1 hilo, donde no hay paralelismo. Aun así P2 es más rápido que el serial, y más entre más grande es k. Speedup de P2 con 1 hilo contra el serial con 200000 puntos:
+El efecto de k se ve con 1 hilo, donde no hay paralelismo. Aun así P2 es más rápido que el serial, y en general más entre más grande es k. Speedup de P2 con 1 hilo contra el serial con 200000 puntos:
 
 | | k = 2 | k = 4 | k = 8 | k = 16 | k = 32 | k = 64 |
 |---|---|---|---|---|---|---|
-| J | 1.7 | 3.0 | 5.2 | 10.1 | 15.2 | 22.3 |
-| M | 1.5 | 2.5 | 3.9 | 5.1 | 6.0 | 5.5 |
+| José Luis | 1.5 | 2.7 | 4.0 | 5.2 | 6.3 | 5.3 |
+| Miguel | 1.5 | 2.5 | 3.9 | 5.1 | 6.0 | 5.5 |
 
-La mejora se debe a que cada punto se compara contra los puntos de la lista de su partición y no contra los n puntos, y esos puntos están cerca en el plano, así que junta sus vecinos más rápido. En M el speedup sube con k hasta k = 32, y con k = 64 baja un poco (6.0 a 5.5), probablemente porque con más particiones el borde que se repite en cada lista pesa más.
+La mejora se debe a que cada punto se compara contra los puntos de la lista de su partición y no contra los n puntos, y esos puntos están cerca en el plano, así que junta sus vecinos más rápido. En las dos computadoras el speedup sube con k hasta k = 32, y con k = 64 baja un poco (6.3 a 5.3 en la de José Luis y 6.0 a 5.5 en la de Miguel), probablemente porque con más particiones el borde que se repite en cada lista pesa más.
 
-El efecto de los hilos se ve comparando P2 contra P2 con 1 hilo y el mismo k. Con 200000 puntos y k = 64, los hilos dan 2.02 en J con 8 hilos y 5.69 en M con 8 hilos. Es menos que en P1 por tres razones:
+El efecto de los hilos se ve comparando P2 contra P2 con 1 hilo y el mismo k. Con 200000 puntos y k = 64, los hilos dan 2.09 en la computadora de José Luis con 8 hilos y 5.70 en la de Miguel con 32 hilos, contra 2.05 y 7.24 de P1 comparado con P1 con 1 hilo. En la de José Luis los dos quedan cerca de 2, porque ahí el límite son los 2 núcleos físicos, pero en la de Miguel P2 aprovecha menos los hilos que P1, y con k = 4 no pasa de 2.2 en ninguna de las dos. Esto pasa por tres razones:
 * Con k particiones solo puede haber k hilos trabajando, así que con k = 2 el máximo es 2.
 * Las particiones tienen cantidades de puntos muy distintas, porque los puntos vienen de 4 nubes. Con k = 4 la partición más grande tiene el 39% de los puntos, y con k = 64 tiene el 11% y hay 9 particiones vacías. Los hilos que terminan antes tienen que esperar a la partición más grande.
 * Armar las listas también entra en el tiempo medido, y cada partición recorre los n puntos para armar la suya, así que ese trabajo crece con k. Con k = 64 todo P2 tarda pocos milisegundos, así que esa parte pesa.
 
-El mejor speedup de P2 contra el serial fue de 45 en J, con 200000 puntos, k = 64 y 8 hilos, y de 34 en M, con 160000 puntos, k = 64 y 32 hilos. En M, con 200000 puntos y k = 64, los speedups son 31.1 con 8 hilos, 26.2 con 16 y 31.2 con 32.
+El mejor speedup de P2 contra el serial fue de 14 en la computadora de José Luis, con 120000 puntos, k = 32 y 4 hilos, y de 34 en la de Miguel, con 160000 puntos, k = 64 y 32 hilos. Con 200000 puntos y k = 64, los speedups en la de José Luis son 7.1 con 2 hilos, 7.7 con 4 y 11.1 con 8, y en la de Miguel son 31.1 con 8 hilos, 26.2 con 16 y 31.2 con 32.
 
-En M pasar de 8 a 16 hilos no mejora P2 con k = 64. Esas corridas duran pocos milisegundos y con 16 hilos se ocupan todos los cores virtuales, así que cualquier otro proceso de la computadora puede retrasar a algún hilo y los demás tienen que esperarlo.
+En la computadora de Miguel, pasar de 8 a 16 hilos no mejora P2 con k = 64. Esas corridas duran pocos milisegundos y con 16 hilos se ocupan todos los cores virtuales, así que cualquier otro proceso de la computadora puede retrasar a algún hilo y los demás tienen que esperarlo.
 
-![Speedup P2 con 1 hilo](graficas/speedup_p2_un_hilo_M.png)
-![Speedup P2 con tantos hilos como cores virtuales](graficas/speedup_p2_cores_M.png)
-![Speedup P2 contra P2 con 1 hilo](graficas/speedup_p2_contra_1_hilo_M.png)
+![Speedup P2 con 1 hilo](graficas/speedup_p2_un_hilo_U.png)
+![Speedup P2 con tantos hilos como cores virtuales](graficas/speedup_p2_cores_U.png)
+![Speedup P2 contra P2 con 1 hilo](graficas/speedup_p2_contra_1_hilo_U.png)
 
 ### Comparación entre P1 y P2
-Las dos versiones pasan la meta de speedup de 1.5 en las dos computadoras. P2 fue mucho más rápida en tiempo total, pero sobre todo porque al dividir el plano en particiones cada punto se compara contra menos puntos, no por los hilos. P1 fue la que mejor aprovechó los hilos, porque reparte puntos y no zonas, entonces a cada hilo le toca un trabajo parecido. En P2 el reparto depende de cuántos puntos caen en cada partición, y con estos datos queda muy disparejo.
+Las dos versiones pasan la meta de speedup de 1.5 en las dos computadoras. P2 fue mucho más rápida en tiempo total, pero sobre todo porque al dividir el plano en particiones cada punto se compara contra menos puntos, no por los hilos. En la computadora de Miguel, P1 fue la que mejor aprovechó los hilos, porque reparte puntos y no zonas, entonces a cada hilo le toca un trabajo parecido. En la de José Luis las dos se quedan cerca de 2 por los 2 núcleos físicos. En P2 el reparto depende de cuántos puntos caen en cada partición, y con estos datos queda muy disparejo.
 
-![Comparación entre P1 y P2](graficas/comparacion_M.png)
+![Comparación entre P1 y P2](graficas/comparacion_U.png)
 
 ### Comparación entre las dos computadoras
-Con un solo hilo las dos computadoras son parecidas: con 200000 puntos el serial tarda 0.555 s en J y 0.700 s en M. La diferencia grande aparece al usar varios hilos.
+Con un solo hilo la de José Luis es más rápida: con 200000 puntos el serial tarda 0.456 s en la de José Luis y 0.700 s en la de Miguel. Esto se invierte al usar varios hilos.
 
-Lo más interesante es la corrida con 8 hilos de P1, porque las dos computadoras la hicieron. En J, 8 hilos es el doble de sus cores virtuales, y en M es la mitad. Con 200000 puntos:
+Lo más interesante es la corrida con 8 hilos de P1, porque las dos computadoras la hicieron. En la de José Luis, 8 hilos es el doble de sus cores virtuales, y en la de Miguel es la mitad. Con 200000 puntos:
 
-| | J con 8 hilos | M con 8 hilos | M más rápido |
+| | José Luis con 8 hilos | Miguel con 8 hilos | Miguel más rápido |
 |---|---|---|---|
-| P1 | 0.272 s, speedup 2.04 | 0.157 s, speedup 4.45 | 1.7 veces |
+| P1 | 0.227 s, speedup 2.01 | 0.157 s, speedup 4.45 | 1.4 veces |
 
-Con el mismo número de hilos, M es 1.7 veces más rápida en P1 aunque su serial es más lento. La razón es que en J los 8 hilos se reparten entre 2 núcleos físicos, así que la mayoría están esperando su turno, mientras que en M cada hilo tiene un core virtual para él solo. Pedir más hilos no da más velocidad si el hardware no los tiene. P1 es la que más lo resiente porque es la que mejor reparte el trabajo, entonces es la que más aprovecha tener núcleos de verdad.
+Con el mismo número de hilos, la de Miguel es 1.4 veces más rápida en P1 aunque su serial es más lento. La razón es que en la de José Luis los 8 hilos se reparten entre 2 núcleos físicos, así que la mayoría están esperando su turno, mientras que en la de Miguel cada hilo tiene un core virtual para él solo. Pedir más hilos no da más velocidad si el hardware no los tiene. P1 es la que más lo resiente porque es la que mejor reparte el trabajo, entonces es la que más aprovecha tener núcleos de verdad.
 
 ## Conclusión
 Hicimos tres versiones del algoritmo ingenuo de DBSCAN para detectar ruido: una serial, P1, que reparte los puntos entre los hilos sin dividir la matriz, y P2, que divide el plano en k particiones y reparte particiones. Las tres dan exactamente las mismas etiquetas en todos los tamaños y configuraciones. Ninguna versión paralela tiene condiciones de carrera, porque cada hilo solo escribe la etiqueta de sus propios puntos y el paso 2 lee el resultado del paso 1 de un arreglo que ya no cambia. Para mantener la consistencia en P2, la lista de cada partición incluye también los puntos vecinos a distancia epsilon o menos de su rectángulo, así que no se pierde ningún vecino del otro lado de una frontera.
 
-Las dos versiones paralelas superan la meta de speedup de 1.5 en las dos computadoras. P1 llegó a 2.8 en J y a 7.2 en M, y P2 llegó a 45 en J y a 34 en M.
+Las dos versiones paralelas superan la meta de speedup de 1.5 en las dos computadoras. P1 llegó a 2.2 en la de José Luis y a 7.2 en la de Miguel, y P2 llegó a 14 en la de José Luis y a 34 en la de Miguel.
 
-P2 fue la más rápida, pero hay que leer bien por qué. La mayor parte de su ventaja viene de dividir el plano: aun con 1 hilo, con k = 64 es 5.5 veces más rápida que el serial en M, porque cada punto se compara contra los puntos de su lista y no contra todos. Los hilos le aportan entre 2 y 6 veces más, porque las particiones quedan con cantidades de puntos muy distintas y k limita cuántos hilos pueden trabajar a la vez. P1, en cambio, fue la que mejor aprovechó los hilos, porque a cada hilo le toca un trabajo parecido.
+P2 fue la más rápida, pero hay que leer bien por qué. La mayor parte de su ventaja viene de dividir el plano: aun con 1 hilo, con k = 64 es 5.3 veces más rápida que el serial en la computadora de José Luis y 5.5 en la de Miguel, porque cada punto se compara contra los puntos de su lista y no contra todos. Los hilos le aportan cerca de 2 veces más en la de José Luis y hasta 5.7 en la de Miguel, porque las particiones quedan con cantidades de puntos muy distintas y k limita cuántos hilos pueden trabajar a la vez. P1, en cambio, fue la que mejor aprovechó los hilos en la de Miguel, porque a cada hilo le toca un trabajo parecido.
 
-También vimos que el hardware pone el límite. Con 1 hilo las dos computadoras son parecidas, pero con 8 hilos M fue 1.7 veces más rápida en P1, porque tiene núcleos suficientes para esos hilos y J solo tiene 2 núcleos físicos. Usar más hilos que cores no mejoró en ninguna de las dos.
+También vimos que el hardware pone el límite. Con 1 hilo la de José Luis fue más rápida, pero con 8 hilos la de Miguel fue 1.4 veces más rápida en P1, porque tiene núcleos suficientes para esos hilos y la de José Luis solo tiene 2 núcleos físicos. En la de José Luis usar más hilos que cores no mejoró, pero en la de Miguel sí, P1 pasó de 5.40 con 16 hilos a 7.20 con 32.
 
-Por último, con tiempos de pocos milisegundos las mediciones se vuelven ruidosas, por ejemplo los resultados de P2 con 16 hilos en M, que no mejoran respecto a los de 8 hilos. Por eso promediar 10 repeticiones, hacer una corrida de calentamiento y correr sin otros programas abiertos fue importante para que los resultados fueran confiables.
+Por último, con tiempos de pocos milisegundos las mediciones se vuelven ruidosas, por ejemplo los resultados de P2 con 16 hilos en la computadora de Miguel, que no mejoran respecto a los de 8 hilos, o P2 en la de José Luis con 140000 puntos, k = 8 y 1 hilo, que tardó 0.36 s cuando con 120000 y 160000 puntos tardó menos de 0.1 s. Por eso promediar 10 repeticiones, hacer una corrida de calentamiento y correr sin otros programas abiertos fue importante para que los resultados fueran confiables.
 
 ## Uso responsable y ético de IA Generativa
 Siguiendo los lineamientos de IEEE y de Elsevier que vienen en las instrucciones, declaramos que en este proyecto usamos IA generativa, en particular Claude de Anthropic.
