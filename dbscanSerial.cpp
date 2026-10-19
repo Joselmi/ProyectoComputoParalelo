@@ -94,7 +94,14 @@ void escribirResultados(string ruta, double* x, double* y, int* etiqueta, int n)
 }
 
 
-int main() {
+int main(int argc, char* argv[]) {
+    // Letra de la computadora donde se corre, J o M, va al final de cada archivo
+    if (argc < 2) {
+        cout << "Falta la letra de la computadora, por ejemplo dbscanSerial J\n";
+        return 1;
+    }
+    string equipo = argv[1];
+
     // Parametros del experimento tal como vienen en las instrucciones
     int tamanos[8] = {20000, 40000, 80000, 120000, 140000, 160000, 180000, 200000};
     int repeticiones = 10;
@@ -104,12 +111,12 @@ int main() {
     int minPuntos = 10;
 
     // Archivo con el tiempo promedio de cada tamano
-    ofstream archivoTiempos("datos/tiempos_serial.csv");
+    ofstream archivoTiempos("datos/tiempos_serial_" + equipo + ".csv");
     archivoTiempos << "puntos,promedio\n";
 
     for (int t = 0; t < 8; t++) {
         string rutaEntrada = "datos/" + to_string(tamanos[t]) + "_data.csv";
-        string rutaSalida = "datos/" + to_string(tamanos[t]) + "_results.csv";
+        string rutaSalida = "datos/" + to_string(tamanos[t]) + "_results_" + equipo + ".csv";
 
         int n = contarPuntos(rutaEntrada);
         if (n == 0) {

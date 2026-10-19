@@ -123,6 +123,13 @@ void dbscanP1(double* x, double* y, int* etiqueta, int n, double epsilon, int mi
 
 
 int main(int argc, char* argv[]) {
+    // Letra de la computadora donde se corre, J o M, va al final de cada archivo
+    if (argc < 2) {
+        cout << "Falta la letra de la computadora, por ejemplo dbscanP1 J\n";
+        return 1;
+    }
+    string equipo = argv[1];
+
     // Parametros del experimento tal como vienen en las instrucciones
     int tamanos[8] = {20000, 40000, 80000, 120000, 140000, 160000, 180000, 200000};
     int repeticiones = 10;
@@ -143,95 +150,95 @@ int main(int argc, char* argv[]) {
     double epsilon = 0.03;
     int minPuntos = 10;
 
-    // Uso opcional: ./dbscanP1 [puntos] [repeticiones]
-    // Con puntos solo se corre ese tamano, se imprime en pantalla y no se escribe el archivo
+    // Despues de la letra se puede dar un tamano y las repeticiones, por ejemplo dbscanP1 J 20000 1
+    // Con un tamano solo se corre ese, se imprime en pantalla y no se escribe el archivo
     int tamanoUnico = 0;
     bool corridaCompleta = true;
-    if (argc >= 2) {
-        tamanoUnico = atoi(argv[1]);
+    if (argc >= 3) {
+        tamanoUnico = atoi(argv[2]);
         corridaCompleta = false;
     }
-    if (argc >= 3)
-        repeticiones = atoi(argv[2]);
+    if (argc >= 4)
+        repeticiones = atoi(argv[3]);
 
     // Archivo con el tiempo promedio de cada configuracion
     // Tiene el mismo formato que el de P2, con k igual a 1 porque la matriz no se divide
     ofstream archivoTiempos;
     if (corridaCompleta) {
-        archivoTiempos.open("datos/tiempos_p1.csv");
+        archivoTiempos.open("datos/tiempos_p1_" + equipo + ".csv");
         archivoTiempos << "puntos,hilos,k,promedio\n";
     }
 
     for (int t = 0; t < 8; t++) {
-        if (!corridaCompleta && tamanos[t] != tamanoUnico)
-            continue;
+        // Con un tamano solo se corre ese
+        if (corridaCompleta || tamanos[t] == tamanoUnico) {
+            string rutaEntrada = "datos/" + to_string(tamanos[t]) + "_data.csv";
+            string rutaSerial = "datos/" + to_string(tamanos[t]) + "_results_" + equipo + ".csv";
 
-        string rutaEntrada = "datos/" + to_string(tamanos[t]) + "_data.csv";
-        string rutaSerial = "datos/" + to_string(tamanos[t]) + "_results.csv";
-
-        int n = contarPuntos(rutaEntrada);
-        if (n == 0) {
-            cout << "No se pudo leer ningun punto de " << rutaEntrada << "\n";
-            return 1;
-        }
-
-        // Memoria para las coordenadas y la etiqueta de cada punto
-        double* x = new double[n];
-        double* y = new double[n];
-        int* etiqueta = new int[n];
-        int* etiquetaSerial = new int[n];
-
-        leerPuntos(rutaEntrada, x, y, n);
-
-        // Etiquetas que escribio el serial, para comprobar que P1 da lo mismo
-        if (!leerEtiquetas(rutaSerial, etiquetaSerial, n)) {
-            cout << "No se pudo leer " << rutaSerial << "\n";
-            return 1;
-        }
-
-        // Se escribe el csv con los puntos core y ruido, sin contar en el tiempo
-        // Todas las configuraciones dan las mismas etiquetas, por eso basta una
-        if (corridaCompleta) {
-            dbscanP1(x, y, etiqueta, n, epsilon, minPuntos);
-            escribirResultados("datos/" + to_string(n) + "_results_p1.csv", x, y, etiqueta, n);
-        }
-
-        for (int h = 0; h < 4; h++) {
-            omp_set_num_threads(hilos[h]);
-
-            // Corrida de calentamiento, tambien sirve para comparar con el serial
-            dbscanP1(x, y, etiqueta, n, epsilon, minPuntos);
-            int diferencias = 0;
-            for (int i = 0; i < n; i++)
-                if (etiqueta[i] != etiquetaSerial[i])
-                    diferencias++;
-            if (diferencias > 0)
-                cout << "MISMATCH puntos " << n << " hilos " << hilos[h]
-                     << " diferencias " << diferencias << "\n";
-
-            // Se corre el algoritmo varias veces y se promedia el tiempo
-            double suma = 0;
-            for (int r = 0; r < repeticiones; r++) {
-                double inicio = omp_get_wtime();
-                dbscanP1(x, y, etiqueta, n, epsilon, minPuntos);
-                double fin = omp_get_wtime();
-                suma = suma + (fin - inicio);
+            int n = contarPuntos(rutaEntrada);
+            if (n == 0) {
+                cout << "No se pudo leer ningun punto de " << rutaEntrada << "\n";
+                return 1;
             }
-            double promedio = suma / repeticiones;
 
-            if (corridaCompleta)
-                archivoTiempos << n << "," << hilos[h] << ",1," << promedio << "\n";
-            else
-                cout << "puntos " << n << " hilos " << hilos[h]
-                     << " promedio " << promedio << " s\n";
+            // Memoria para las coordenadas y la etiqueta de cada punto
+            double* x = new double[n];
+            double* y = new double[n];
+            int* etiqueta = new int[n];
+            int* etiquetaSerial = new int[n];
+
+            leerPuntos(rutaEntrada, x, y, n);
+
+            // Etiquetas que escribio el serial, para comprobar que P1 da lo mismo
+            if (!leerEtiquetas(rutaSerial, etiquetaSerial, n)) {
+                cout << "No se pudo leer " << rutaSerial << "\n";
+                return 1;
+            }
+
+            // Se escribe el csv con los puntos core y ruido, sin contar en el tiempo
+            // Todas las configuraciones dan las mismas etiquetas, por eso basta una
+            if (corridaCompleta) {
+                dbscanP1(x, y, etiqueta, n, epsilon, minPuntos);
+                escribirResultados("datos/" + to_string(n) + "_results_p1_" + equipo + ".csv", x, y, etiqueta, n);
+            }
+
+            for (int h = 0; h < 4; h++) {
+                omp_set_num_threads(hilos[h]);
+
+                // Corrida de calentamiento, tambien sirve para comparar con el serial
+                dbscanP1(x, y, etiqueta, n, epsilon, minPuntos);
+                int diferencias = 0;
+                for (int i = 0; i < n; i++)
+                    if (etiqueta[i] != etiquetaSerial[i])
+                        diferencias++;
+                if (diferencias > 0)
+                    cout << "MISMATCH puntos " << n << " hilos " << hilos[h]
+                         << " diferencias " << diferencias << "\n";
+
+                // Se corre el algoritmo varias veces y se promedia el tiempo
+                double suma = 0;
+                for (int r = 0; r < repeticiones; r++) {
+                    double inicio = omp_get_wtime();
+                    dbscanP1(x, y, etiqueta, n, epsilon, minPuntos);
+                    double fin = omp_get_wtime();
+                    suma = suma + (fin - inicio);
+                }
+                double promedio = suma / repeticiones;
+
+                if (corridaCompleta)
+                    archivoTiempos << n << "," << hilos[h] << ",1," << promedio << "\n";
+                else
+                    cout << "puntos " << n << " hilos " << hilos[h]
+                         << " promedio " << promedio << " s\n";
+            }
+            cout << n << " puntos listo\n";
+
+            // Libera la memoria pedida
+            delete[] x;
+            delete[] y;
+            delete[] etiqueta;
+            delete[] etiquetaSerial;
         }
-        cout << n << " puntos listo\n";
-
-        // Libera la memoria pedida
-        delete[] x;
-        delete[] y;
-        delete[] etiqueta;
-        delete[] etiquetaSerial;
     }
 
     if (corridaCompleta)
