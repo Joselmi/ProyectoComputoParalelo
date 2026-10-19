@@ -53,13 +53,12 @@ void dbscanSerial(double* x, double* y, int* etiqueta, int n, double epsilon, in
     // a distancia epsilon contandose a si mismo, en otro caso es ruido
     for (int i = 0; i < n; i++) {
         int vecinos = 0;
-        for (int j = 0; j < n; j++) {
-            if (sonVecinos(x, y, i, j, epsilon)) {
+        int j = 0;
+        // Se deja de contar en cuanto el punto ya es denso
+        while (j < n && vecinos < minPuntos) {
+            if (sonVecinos(x, y, i, j, epsilon))
                 vecinos++;
-                // Ya se sabe que es denso, no hace falta seguir contando
-                if (vecinos >= minPuntos)
-                    break;
-            }
+            j++;
         }
 
         if (vecinos >= minPuntos)
@@ -72,13 +71,13 @@ void dbscanSerial(double* x, double* y, int* etiqueta, int n, double epsilon, in
     // Un punto ruido se vuelve core de segundo orden si esta a distancia
     // epsilon de algun core de primer orden
     for (int i = 0; i < n; i++) {
-        if (etiqueta[i] != RUIDO)
-            continue;
-
-        for (int j = 0; j < n; j++) {
-            if (etiqueta[j] == COREPRIMERO && sonVecinos(x, y, i, j, epsilon)) {
-                etiqueta[i] = CORESEGUNDO;
-                break;
+        if (etiqueta[i] == RUIDO) {
+            int j = 0;
+            // Se deja de buscar en cuanto encuentra un core de primer orden cercano
+            while (j < n && etiqueta[i] == RUIDO) {
+                if (etiqueta[j] == COREPRIMERO && sonVecinos(x, y, i, j, epsilon))
+                    etiqueta[i] = CORESEGUNDO;
+                j++;
             }
         }
     }
