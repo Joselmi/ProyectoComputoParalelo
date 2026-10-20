@@ -103,10 +103,14 @@ void dbscanP2(double* x, double* y, int* etiqueta, int n, double epsilon, int mi
     double minY = y[0];
     double maxY = y[0];
     for (int i = 1; i < n; i++) {
-        if (x[i] < minX) minX = x[i];
-        if (x[i] > maxX) maxX = x[i];
-        if (y[i] < minY) minY = y[i];
-        if (y[i] > maxY) maxY = y[i];
+        if (x[i] < minX)
+            minX = x[i];
+        if (x[i] > maxX)
+            maxX = x[i];
+        if (y[i] < minY)
+            minY = y[i];
+        if (y[i] > maxY)
+            maxY = y[i];
     }
     double anchoX = (maxX - minX) / columnas;
     double anchoY = (maxY - minY) / filas;
@@ -116,100 +120,84 @@ void dbscanP2(double* x, double* y, int* etiqueta, int n, double epsilon, int mi
     for (int i = 0; i < n; i++) {
         int cx = (int)((x[i] - minX) / anchoX);
         int cy = (int)((y[i] - minY) / anchoY);
-        if (cx >= columnas) cx = columnas - 1;
-        if (cy >= filas) cy = filas - 1;
+        // El punto con la x o la y maxima queda en la ultima columna o fila
+        if (cx == columnas)
+            cx = columnas - 1;
+        if (cy == filas)
+            cy = filas - 1;
         particion[i] = cy * columnas + cx;
     }
 
-    // Lista de cada particion: indice original, x y y de sus puntos y de los del halo
-    int** indices = new int*[numParticiones];
-    double** puntosX = new double*[numParticiones];
-    double** puntosY = new double*[numParticiones];
+    // Lista de cada particion con sus puntos y los del halo
+    // Cada lista se pide de tamano n porque en el peor caso entran todos los puntos
+    int** lista = new int*[numParticiones];
     int* cuantos = new int[numParticiones];
 
     // El 1e-9 evita errores de redondeo en los bordes
     double margen = epsilon + 1e-9;
 
-    // Armado de las listas, cada hilo arma la de una particion
+    // Paso 1
+    // Un punto es core de primer orden si tiene al menos minPuntos vecinos
+    // a distancia epsilon contandose a si mismo, en otro caso es ruido
+    // Cada hilo toma una particion, arma su lista y solo escribe la etiqueta de sus propios puntos
     #pragma omp parallel for schedule(dynamic, 1)
     for (int p = 0; p < numParticiones; p++) {
+        // Rectangulo de la particion agrandado epsilon de cada lado
         double izquierda = minX + (p % columnas) * anchoX - margen;
         double derecha = minX + (p % columnas + 1) * anchoX + margen;
         double abajo = minY + (p / columnas) * anchoY - margen;
         double arriba = minY + (p / columnas + 1) * anchoY + margen;
 
-        // Primero se juntan los indices de los puntos de la particion y del halo
-        int* temporal = new int[n];
-        int total = 0;
+        lista[p] = new int[n];
+        cuantos[p] = 0;
         for (int i = 0; i < n; i++) {
-            if (particion[i] == p || (x[i] >= izquierda && x[i] <= derecha && y[i] >= abajo && y[i] <= arriba)) {
-                temporal[total] = i;
-                total++;
+            if (x[i] >= izquierda && x[i] <= derecha && y[i] >= abajo && y[i] <= arriba) {
+                lista[p][cuantos[p]] = i;
+                cuantos[p]++;
             }
         }
 
-        // Despues se copian sus coordenadas para que queden juntas en memoria
-        indices[p] = new int[total];
-        puntosX[p] = new double[total];
-        puntosY[p] = new double[total];
-        for (int m = 0; m < total; m++) {
-            indices[p][m] = temporal[m];
-            puntosX[p][m] = x[temporal[m]];
-            puntosY[p][m] = y[temporal[m]];
-        }
-        cuantos[p] = total;
-        delete[] temporal;
-    }
-
-    int* etiquetaPaso1 = new int[n];
-
-    // Paso 1
-    // Un punto es core de primer orden si tiene al menos minPuntos vecinos
-    // a distancia epsilon contandose a si mismo, en otro caso es ruido
-    // Cada hilo toma una particion y solo escribe la etiqueta de sus propios puntos
-    #pragma omp parallel for schedule(dynamic, 1)
-    for (int p = 0; p < numParticiones; p++) {
         for (int m = 0; m < cuantos[p]; m++) {
-            int i = indices[p][m];
+            int i = lista[p][m];
             // Los puntos del halo se clasifican en su propia particion
-            if (particion[i] != p)
-                continue;
+            if (particion[i] == p) {
+                int vecinos = 0;
+                int j = 0;
+                // Se deja de contar en cuanto el punto ya es denso
+                while (j < cuantos[p] && vecinos < minPuntos) {
+                    if (sonVecinos(x, y, i, lista[p][j], epsilon))
+                        vecinos++;
+                    j++;
+                }
 
-            int vecinos = 0;
-            int j = 0;
-            // Se deja de contar en cuanto el punto ya es denso
-            while (j < cuantos[p] && vecinos < minPuntos) {
-                if (sonVecinos(puntosX[p], puntosY[p], m, j, epsilon))
-                    vecinos++;
-                j++;
+                if (vecinos >= minPuntos)
+                    etiqueta[i] = COREPRIMERO;
+                else
+                    etiqueta[i] = RUIDO;
             }
-
-            if (vecinos >= minPuntos)
-                etiquetaPaso1[i] = COREPRIMERO;
-            else
-                etiquetaPaso1[i] = RUIDO;
         }
     }
     // El for paralelo espera a que todos los hilos terminen antes del paso 2,
     // porque un ruido puede tener cerca un core que es de otra particion
 
+    // Copia del paso 1, para que en el paso 2 ningun hilo lea una etiqueta
+    // que otro hilo esta cambiando
+    int* etiquetaPaso1 = new int[n];
+    for (int i = 0; i < n; i++)
+        etiquetaPaso1[i] = etiqueta[i];
+
     // Paso 2
     // Un punto ruido se vuelve core de segundo orden si esta a distancia
     // epsilon de algun core de primer orden
-    // Se lee de etiquetaPaso1, que ya no cambia, y se escribe en etiqueta
     #pragma omp parallel for schedule(dynamic, 1)
     for (int p = 0; p < numParticiones; p++) {
         for (int m = 0; m < cuantos[p]; m++) {
-            int i = indices[p][m];
-            if (particion[i] != p)
-                continue;
-
-            etiqueta[i] = etiquetaPaso1[i];
-            if (etiquetaPaso1[i] == RUIDO) {
+            int i = lista[p][m];
+            if (particion[i] == p && etiquetaPaso1[i] == RUIDO) {
                 int j = 0;
                 // Se deja de buscar en cuanto encuentra un core de primer orden cercano
                 while (j < cuantos[p] && etiqueta[i] == RUIDO) {
-                    if (etiquetaPaso1[indices[p][j]] == COREPRIMERO && sonVecinos(puntosX[p], puntosY[p], m, j, epsilon))
+                    if (etiquetaPaso1[lista[p][j]] == COREPRIMERO && sonVecinos(x, y, i, lista[p][j], epsilon))
                         etiqueta[i] = CORESEGUNDO;
                     j++;
                 }
@@ -218,14 +206,9 @@ void dbscanP2(double* x, double* y, int* etiqueta, int n, double epsilon, int mi
     }
 
     // Libera la memoria pedida
-    for (int p = 0; p < numParticiones; p++) {
-        delete[] indices[p];
-        delete[] puntosX[p];
-        delete[] puntosY[p];
-    }
-    delete[] indices;
-    delete[] puntosX;
-    delete[] puntosY;
+    for (int p = 0; p < numParticiones; p++)
+        delete[] lista[p];
+    delete[] lista;
     delete[] cuantos;
     delete[] particion;
     delete[] etiquetaPaso1;
