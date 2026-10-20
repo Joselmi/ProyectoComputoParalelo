@@ -131,33 +131,7 @@ Con 1 hilo P1 tarda prácticamente lo mismo que el serial, lo cual tiene sentido
 
 ![Speedup P1](graficas/speedup_p1_U.png)
 
-### P2
-En P2 hay que separar dos efectos, el de k y el de los hilos. Se probó con todos los tamaños, con k = 2, 4, 8, 16, 32 y 64, y con las mismas cantidades de hilos que P1.
-
-El efecto de k se ve con 1 hilo, donde no hay paralelismo. Aun así P2 es más rápido que el serial, y en general más entre más grande es k. Speedup de P2 con 1 hilo contra el serial con 200000 puntos:
-
-| | k = 2 | k = 4 | k = 8 | k = 16 | k = 32 | k = 64 |
-|---|---|---|---|---|---|---|
-| José Luis | 1.3 | 2.2 | 2.8 | 4.0 | 6.8 | 8.4 |
-| Miguel | 2.0 | 3.2 | 4.9 | 7.0 | 9.3 | 10.6 |
-
-La mejora se debe a que cada punto se compara contra los puntos de la lista de su partición y no contra los n puntos, y esos puntos están cerca en el plano, así que junta sus vecinos más rápido. En la computadora de José Luis el speedup sube con k en todos los tamaños, hasta 8.4 con k = 64. En la de Miguel también sube con k en todos los tamaños. Con k = 64 llega a entre 6 y 7.5 hasta 160000 puntos, y a 10.2 con 180000 y a 10.6 con 200000.
-
-Con varios hilos P2 mejora todavía más, pero los hilos le ayudan menos que a P1. Esto pasa por tres razones:
-* Con k particiones solo puede haber k hilos trabajando, así que con k = 2 el máximo es 2.
-* Las particiones tienen cantidades de puntos muy distintas, porque los puntos vienen de 4 nubes. Con k = 4 la partición más grande tiene el 39% de los puntos, y con k = 64 tiene el 11% y hay 9 particiones vacías. Los hilos que terminan antes tienen que esperar a la partición más grande.
-* Armar las listas también entra en el tiempo medido, y cada partición recorre los n puntos para armar la suya, así que ese trabajo crece con k. Con k = 64 cada partición tiene pocos puntos propios, así que recorrer los n puntos para armar su lista pesa más en proporción.
-
-Esos dos últimos tamaños en la computadora de Miguel salen mejor que los anteriores sin que el algoritmo cambie: con k = 64 y 1 hilo, P2 tarda 0.234 s con 160000 puntos y 0.158 s con 180000, o sea que tarda menos con más puntos. Lo mismo se ve en los speedups con más hilos, por ejemplo con 16 hilos y k = 64 pasa de 28 a 46. Como los tamaños se corren uno tras otro, lo más probable es que el estado de la computadora (frecuencia del procesador o procesos en segundo plano) cambió entre esas corridas, pero no lo comprobamos. Por eso los speedups de 180000 y 200000 puntos de Miguel conviene leerlos con cuidado, y con los tamaños menores P2 con k = 64 y 8 a 32 hilos da entre 17 y 41.
-
-El mejor speedup de P2 contra el serial fue de 16.9 en la computadora de José Luis, con 80000 puntos, k = 64 y 4 hilos, y de 56.0 en la de Miguel, con 200000 puntos, k = 64 y 32 hilos. Con 200000 puntos y k = 64, los speedups en la de José Luis son 11.7 con 2 hilos, 14.7 con 4 y 14.1 con 8, y en la de Miguel son 48.5 con 8 hilos, 54.5 con 16 y 56.0 con 32.
-
-En la computadora de Miguel, pasar de 8 a 16 hilos mejora poco P2 con k = 64, y de 16 a 32 casi nada. Esas corridas duran pocos milisegundos, y con todos los cores virtuales ocupados cualquier otro proceso de la computadora puede retrasar a algún hilo y los demás tienen que esperarlo.
-
-![Speedup P2 con 1 hilo](graficas/speedup_p2_un_hilo_U.png)
-![Speedup P2 con tantos hilos como cores virtuales](graficas/speedup_p2_cores_U.png)
-
-### Serial contra P1
+#### Serial contra P1
 Aquí están todos los tamaños. Cada celda tiene el tiempo promedio de P1 en segundos y, entre paréntesis, el speedup contra el serial de la misma computadora.
 
 José Luis:
@@ -187,6 +161,32 @@ Miguel:
 | 200000 | 1.841 | 1.783 s (1.03) | 0.389 s (4.74) | 0.281 s (6.55) | 0.284 s (6.49) |
 
 Con 1 hilo P1 queda en cerca de 1 en todos los tamaños (entre 0.92 y 1.14 con José Luis, y entre 0.96 y 1.24 con Miguel), porque es el mismo algoritmo y solo se agrega la sobrecarga del paralelismo. Con José Luis el speedup se queda por debajo de 2 en todos los tamaños, y solo una corrida queda por debajo de la meta de 1.5: 2 hilos con 140000 puntos (1.44). Con Miguel todas las corridas con más de un hilo pasan la meta, desde 3.95 con 8 hilos hasta 7.40 con 32 hilos, y con 16 y 32 hilos el speedup casi no cambia entre 80000 y 200000 puntos, así que no crece con el tamaño.
+
+### P2
+En P2 hay que separar dos efectos, el de k y el de los hilos. Se probó con todos los tamaños, con k = 2, 4, 8, 16, 32 y 64, y con las mismas cantidades de hilos que P1.
+
+El efecto de k se ve con 1 hilo, donde no hay paralelismo. Aun así P2 es más rápido que el serial, y en general más entre más grande es k. Speedup de P2 con 1 hilo contra el serial con 200000 puntos:
+
+| | k = 2 | k = 4 | k = 8 | k = 16 | k = 32 | k = 64 |
+|---|---|---|---|---|---|---|
+| José Luis | 1.3 | 2.2 | 2.8 | 4.0 | 6.8 | 8.4 |
+| Miguel | 2.0 | 3.2 | 4.9 | 7.0 | 9.3 | 10.6 |
+
+La mejora se debe a que cada punto se compara contra los puntos de la lista de su partición y no contra los n puntos, y esos puntos están cerca en el plano, así que junta sus vecinos más rápido. En la computadora de José Luis el speedup sube con k en todos los tamaños, hasta 8.4 con k = 64. En la de Miguel también sube con k en todos los tamaños. Con k = 64 llega a entre 6 y 7.5 hasta 160000 puntos, y a 10.2 con 180000 y a 10.6 con 200000.
+
+Con varios hilos P2 mejora todavía más, pero los hilos le ayudan menos que a P1. Esto pasa por tres razones:
+* Con k particiones solo puede haber k hilos trabajando, así que con k = 2 el máximo es 2.
+* Las particiones tienen cantidades de puntos muy distintas, porque los puntos vienen de 4 nubes. Con k = 4 la partición más grande tiene el 39% de los puntos, y con k = 64 tiene el 11% y hay 9 particiones vacías. Los hilos que terminan antes tienen que esperar a la partición más grande.
+* Armar las listas también entra en el tiempo medido, y cada partición recorre los n puntos para armar la suya, así que ese trabajo crece con k. Con k = 64 cada partición tiene pocos puntos propios, así que recorrer los n puntos para armar su lista pesa más en proporción.
+
+Esos dos últimos tamaños en la computadora de Miguel salen mejor que los anteriores sin que el algoritmo cambie: con k = 64 y 1 hilo, P2 tarda 0.234 s con 160000 puntos y 0.158 s con 180000, o sea que tarda menos con más puntos. Lo mismo se ve en los speedups con más hilos, por ejemplo con 16 hilos y k = 64 pasa de 28 a 46. Como los tamaños se corren uno tras otro, lo más probable es que el estado de la computadora (frecuencia del procesador o procesos en segundo plano) cambió entre esas corridas, pero no lo comprobamos. Por eso los speedups de 180000 y 200000 puntos de Miguel conviene leerlos con cuidado, y con los tamaños menores P2 con k = 64 y 8 a 32 hilos da entre 17 y 41.
+
+El mejor speedup de P2 contra el serial fue de 16.9 en la computadora de José Luis, con 80000 puntos, k = 64 y 4 hilos, y de 56.0 en la de Miguel, con 200000 puntos, k = 64 y 32 hilos. Con 200000 puntos y k = 64, los speedups en la de José Luis son 11.7 con 2 hilos, 14.7 con 4 y 14.1 con 8, y en la de Miguel son 48.5 con 8 hilos, 54.5 con 16 y 56.0 con 32.
+
+En la computadora de Miguel, pasar de 8 a 16 hilos mejora poco P2 con k = 64, y de 16 a 32 casi nada. Esas corridas duran pocos milisegundos, y con todos los cores virtuales ocupados cualquier otro proceso de la computadora puede retrasar a algún hilo y los demás tienen que esperarlo.
+
+![Speedup P2 con 1 hilo](graficas/speedup_p2_un_hilo_U.png)
+![Speedup P2 con tantos hilos como cores virtuales](graficas/speedup_p2_cores_U.png)
 
 ### Serial contra P2
 Aquí también están todos los tamaños. P2 depende de k y de los hilos, así que se muestran k = 4 y k = 64, con 1 hilo y con tantos hilos como cores virtuales (4 con José Luis y 16 con Miguel). Los demás valores de k y de hilos están en `datos/tiempos_p2_J.csv` y `datos/tiempos_p2_M.csv`.
