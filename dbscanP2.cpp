@@ -223,7 +223,7 @@ int main(int argc, char* argv[]) {
     }
     string equipo = argv[1];
 
-    // Parametros del experimento tal como vienen en las instrucciones
+    // Parametros del experimento 
     int tamanos[8] = {20000, 40000, 80000, 120000, 140000, 160000, 180000, 200000};
     int valoresK[6] = {2, 4, 8, 16, 32, 64};
     int repeticiones = 10;
