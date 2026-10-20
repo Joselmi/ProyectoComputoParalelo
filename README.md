@@ -97,10 +97,10 @@ El tiempo crece casi en línea recta con el número de puntos, aunque el algorit
 
 | Puntos | José Luis (s) | Miguel (s) |
 |---|---|---|
-| 20000 | 0.223 | 0.057 |
-| 80000 | 0.997 | 0.261 |
-| 120000 | 1.353 | 0.417 |
-| 200000 | 2.292 | 0.700 |
+| 20000 | 0.223 | 0.184 |
+| 80000 | 0.997 | 0.714 |
+| 120000 | 1.353 | 1.052 |
+| 200000 | 2.292 | 1.841 |
 
 ![Tiempo serial](graficas/tiempo_serial_U.png)
 
@@ -123,9 +123,9 @@ Speedup de P1 contra el serial con 200000 puntos:
 
 | Miguel | 1 hilo | 8 hilos | 16 hilos | 32 hilos |
 |---|---|---|---|---|
-| Speedup | 0.99 | 4.45 | 5.40 | 7.20 |
+| Speedup | 1.03 | 4.74 | 6.55 | 6.49 |
 
-Con 1 hilo P1 tarda prácticamente lo mismo que el serial, lo cual tiene sentido porque es el mismo algoritmo. En la computadora de José Luis, con más hilos mejora hasta que se acaban los núcleos reales, y el tope es de cerca de 2, porque solo tiene 2 núcleos físicos. Los 4 cores virtuales son esos 2 núcleos con dos hilos cada uno, que comparten recursos, por eso de 2 a 4 hilos se gana poco y con 8 ya no se gana nada. Con los tamaños chicos P1 llega a 2.35, y desde 120000 puntos se queda en cerca de 1.9. Los tamaños chicos se miden en los primeros segundos de la corrida, y lo más probable es que después la laptop baje la frecuencia del procesador para no pasarse de su límite de potencia, lo que afecta más cuando trabajan los dos núcleos. En la de Miguel el speedup llega a 4.45 con 8 hilos (un hilo por núcleo físico), a 5.40 con 16 y a 7.20 con 32.
+Con 1 hilo P1 tarda prácticamente lo mismo que el serial, lo cual tiene sentido porque es el mismo algoritmo. En la computadora de José Luis, con más hilos mejora hasta que se acaban los núcleos reales, y el tope es de cerca de 2, porque solo tiene 2 núcleos físicos. Los 4 cores virtuales son esos 2 núcleos con dos hilos cada uno, que comparten recursos, por eso de 2 a 4 hilos se gana poco y con 8 ya no se gana nada. Con los tamaños chicos P1 llega a 2.35, y desde 120000 puntos se queda en cerca de 1.9. Los tamaños chicos se miden en los primeros segundos de la corrida, y lo más probable es que después la laptop baje la frecuencia del procesador para no pasarse de su límite de potencia, lo que afecta más cuando trabajan los dos núcleos. En la de Miguel el speedup llega a 4.74 con 8 hilos (un hilo por núcleo físico) y a 6.55 con 16, y con 32 ya no mejora (6.49). Con 32 hilos solo se gana algo con 20000 puntos (7.4). Desde 80000 puntos queda igual que con 16 hilos, cerca de 6.5, y con 1 hilo el speedup es de 1 en todos los tamaños.
 
 ![Speedup P1](graficas/speedup_p1_U.png)
 
@@ -137,18 +137,20 @@ El efecto de k se ve con 1 hilo, donde no hay paralelismo. Aun así P2 es más r
 | | k = 2 | k = 4 | k = 8 | k = 16 | k = 32 | k = 64 |
 |---|---|---|---|---|---|---|
 | José Luis | 1.3 | 2.2 | 2.8 | 4.0 | 6.8 | 8.4 |
-| Miguel | 1.5 | 2.5 | 3.9 | 5.1 | 6.0 | 5.5 |
+| Miguel | 2.0 | 3.2 | 4.9 | 7.0 | 9.3 | 10.6 |
 
-La mejora se debe a que cada punto se compara contra los puntos de la lista de su partición y no contra los n puntos, y esos puntos están cerca en el plano, así que junta sus vecinos más rápido. En la computadora de José Luis el speedup sube con k en todos los tamaños, hasta 8.4 con k = 64. En la de Miguel sube hasta k = 32 y con k = 64 baja un poco (6.0 a 5.5), probablemente porque con más particiones el borde que se repite en cada lista pesa más.
+La mejora se debe a que cada punto se compara contra los puntos de la lista de su partición y no contra los n puntos, y esos puntos están cerca en el plano, así que junta sus vecinos más rápido. En la computadora de José Luis el speedup sube con k en todos los tamaños, hasta 8.4 con k = 64. En la de Miguel también sube con k en todos los tamaños. Con k = 64 llega a entre 6 y 7.5 hasta 160000 puntos, y a 10.2 con 180000 y a 10.6 con 200000.
 
 Con varios hilos P2 mejora todavía más, pero los hilos le ayudan menos que a P1. Esto pasa por tres razones:
 * Con k particiones solo puede haber k hilos trabajando, así que con k = 2 el máximo es 2.
 * Las particiones tienen cantidades de puntos muy distintas, porque los puntos vienen de 4 nubes. Con k = 4 la partición más grande tiene el 39% de los puntos, y con k = 64 tiene el 11% y hay 9 particiones vacías. Los hilos que terminan antes tienen que esperar a la partición más grande.
 * Armar las listas también entra en el tiempo medido, y cada partición recorre los n puntos para armar la suya, así que ese trabajo crece con k. Con k = 64 cada partición tiene pocos puntos propios, así que recorrer los n puntos para armar su lista pesa más en proporción.
 
-El mejor speedup de P2 contra el serial fue de 16.9 en la computadora de José Luis, con 80000 puntos, k = 64 y 4 hilos, y de 34 en la de Miguel, con 160000 puntos, k = 64 y 32 hilos. Con 200000 puntos y k = 64, los speedups en la de José Luis son 11.7 con 2 hilos, 14.7 con 4 y 14.1 con 8, y en la de Miguel son 31.1 con 8 hilos, 26.2 con 16 y 31.2 con 32.
+Esos dos últimos tamaños en la computadora de Miguel salen mejor que los anteriores sin que el algoritmo cambie: con k = 64 y 1 hilo, P2 tarda 0.234 s con 160000 puntos y 0.158 s con 180000, o sea que tarda menos con más puntos. Lo mismo se ve en los speedups con más hilos, por ejemplo con 16 hilos y k = 64 pasa de 28 a 46. Como los tamaños se corren uno tras otro, lo más probable es que el estado de la computadora (frecuencia del procesador o procesos en segundo plano) cambió entre esas corridas, pero no lo comprobamos. Por eso los speedups de 180000 y 200000 puntos de Miguel conviene leerlos con cuidado, y con los tamaños menores P2 con k = 64 y 8 a 32 hilos da entre 17 y 41.
 
-En la computadora de Miguel, pasar de 8 a 16 hilos no mejora P2 con k = 64. Esas corridas duran pocos milisegundos y con 16 hilos se ocupan todos los cores virtuales, así que cualquier otro proceso de la computadora puede retrasar a algún hilo y los demás tienen que esperarlo.
+El mejor speedup de P2 contra el serial fue de 16.9 en la computadora de José Luis, con 80000 puntos, k = 64 y 4 hilos, y de 56.0 en la de Miguel, con 200000 puntos, k = 64 y 32 hilos. Con 200000 puntos y k = 64, los speedups en la de José Luis son 11.7 con 2 hilos, 14.7 con 4 y 14.1 con 8, y en la de Miguel son 48.5 con 8 hilos, 54.5 con 16 y 56.0 con 32.
+
+En la computadora de Miguel, pasar de 8 a 16 hilos mejora poco P2 con k = 64, y de 16 a 32 casi nada. Esas corridas duran pocos milisegundos, y con todos los cores virtuales ocupados cualquier otro proceso de la computadora puede retrasar a algún hilo y los demás tienen que esperarlo.
 
 ![Speedup P2 con 1 hilo](graficas/speedup_p2_un_hilo_U.png)
 ![Speedup P2 con tantos hilos como cores virtuales](graficas/speedup_p2_cores_U.png)
@@ -159,18 +161,28 @@ Las dos versiones pasan la meta de speedup de 1.5 en las dos computadoras. P2 fu
 ![Comparación entre P1 y P2](graficas/comparacion_U.png)
 
 ### Comparación entre las dos computadoras
-> Pendiente: esta sección se escribe con la corrida de Miguel compilada sin optimización.
+Las dos computadoras se compilaron con los mismos comandos, así que los tiempos sí se pueden comparar. Con un solo hilo son parecidas: con 200000 puntos el serial tarda 2.292 s con José Luis y 1.841 s con Miguel (1.2 veces más rápido), y P2 con k = 64 tarda 0.273 s y 0.173 s (1.6 veces). La diferencia grande aparece al usar varios hilos.
+
+La corrida con 8 hilos es la que hicieron las dos. Con José Luis, 8 hilos es el doble de sus cores virtuales, y con Miguel es la mitad. Con 200000 puntos:
+
+| | José Luis con 8 hilos | Miguel con 8 hilos | Miguel más rápido |
+|---|---|---|---|
+| P1 | 1.220 s, speedup 1.88 | 0.389 s, speedup 4.74 | 3.1 veces |
+| P2 con k = 4 | 0.719 s, speedup 3.19 | 0.281 s, speedup 6.56 | 2.6 veces |
+| P2 con k = 64 | 0.163 s, speedup 14.07 | 0.038 s, speedup 48.45 | 4.3 veces |
+
+Con el mismo número de hilos, la computadora de Miguel es entre 2.6 y 4.3 veces más rápida, aunque su serial es solo 1.2 veces más rápido. La razón es que con José Luis los 8 hilos se reparten entre 2 núcleos físicos, así que la mayoría están esperando su turno, mientras que con Miguel cada hilo tiene un core virtual para él solo. Pedir más hilos no da más velocidad si el hardware no los tiene.
 
 ## Conclusión
 Hicimos tres versiones del algoritmo ingenuo de DBSCAN para detectar ruido: una serial, P1, que reparte los puntos entre los hilos sin dividir la matriz, y P2, que divide el plano en k particiones y reparte particiones. Las tres dan exactamente las mismas etiquetas en todos los tamaños y configuraciones. Ninguna versión paralela tiene condiciones de carrera, porque cada hilo solo escribe la etiqueta de sus propios puntos y el paso 2 lee el resultado del paso 1 de un arreglo que ya no cambia. Para mantener la consistencia en P2, la lista de cada partición incluye también los puntos vecinos a distancia epsilon o menos de su rectángulo, así que no se pierde ningún vecino del otro lado de una frontera.
 
-Las dos versiones paralelas superan la meta de speedup de 1.5 en las dos computadoras. P1 llegó a 2.35 en la de José Luis y a 7.2 en la de Miguel, y P2 llegó a 16.9 en la de José Luis y a 34 en la de Miguel.
+Las dos versiones paralelas superan la meta de speedup de 1.5 en las dos computadoras. P1 llegó a 2.35 en la de José Luis y a 7.4 en la de Miguel, y P2 llegó a 16.9 en la de José Luis y a 56.0 en la de Miguel.
 
-P2 fue la más rápida, pero hay que leer bien por qué. La mayor parte de su ventaja viene de dividir el plano: aun con 1 hilo, con k = 64 es 8.4 veces más rápida que el serial en la computadora de José Luis y 5.5 en la de Miguel, porque cada punto se compara contra los puntos de su lista y no contra todos. Los hilos le aportan menos, porque las particiones quedan con cantidades de puntos muy distintas y k limita cuántos hilos pueden trabajar a la vez. P1, en cambio, fue la que mejor aprovechó los hilos en la de Miguel, porque a cada hilo le toca un trabajo parecido.
+P2 fue la más rápida, pero hay que leer bien por qué. La mayor parte de su ventaja viene de dividir el plano: aun con 1 hilo, con k = 64 es 8.4 veces más rápida que el serial en la computadora de José Luis y 10.6 en la de Miguel, porque cada punto se compara contra los puntos de su lista y no contra todos. Los hilos le aportan menos, porque las particiones quedan con cantidades de puntos muy distintas y k limita cuántos hilos pueden trabajar a la vez. P1, en cambio, fue la que mejor aprovechó los hilos en la de Miguel, porque a cada hilo le toca un trabajo parecido.
 
-También vimos que el hardware pone el límite. En la de José Luis el speedup de los hilos no pasa de cerca de 2, porque solo tiene 2 núcleos físicos, y usar más hilos que cores no mejoró, pero en la de Miguel sí, P1 pasó de 5.40 con 16 hilos a 7.20 con 32.
+También vimos que el hardware pone el límite. En la de José Luis el speedup de los hilos no pasa de cerca de 2, porque solo tiene 2 núcleos físicos, y usar más hilos que cores no mejoró, pero en la de Miguel sí, P1 pasó de 4.74 con 8 hilos a 6.55 con 16.
 
-Por último, con tiempos de pocos milisegundos las mediciones se vuelven ruidosas, por ejemplo los resultados de P2 con 16 hilos en la computadora de Miguel, que no mejoran respecto a los de 8 hilos, o P1 en la de José Luis, que con 200000 puntos y 8 hilos dio un speedup de 1.47 en una corrida y de 1.88 en otra, con el mismo programa y los mismos datos. Por eso promediar 10 repeticiones, hacer una corrida de calentamiento y correr sin otros programas abiertos fue importante para que los resultados fueran confiables.
+Por último, con tiempos de pocos milisegundos las mediciones se vuelven ruidosas, por ejemplo P1 en la de José Luis, que con 200000 puntos y 8 hilos dio un speedup de 1.47 en una corrida y de 1.88 en otra, con el mismo programa y los mismos datos. Por eso promediar 10 repeticiones, hacer una corrida de calentamiento y correr sin otros programas abiertos fue importante para que los resultados fueran confiables.
 
 ## Uso responsable y ético de IA Generativa
 Siguiendo los lineamientos de IEEE y de Elsevier que vienen en las instrucciones, declaramos que en este proyecto usamos IA generativa, en particular Claude de Anthropic.
