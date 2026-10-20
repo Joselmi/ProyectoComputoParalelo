@@ -47,6 +47,8 @@ g++ dbscanP2.cpp -o dbscanP2 -fopenmp
 .\dbscanP2.exe J
 ```
 
+Las gráficas no las hacen los programas de C++, salen de las celdas 3 a 7 de la libreta, que leen los archivos `tiempos_*` de `datos` y guardan las imágenes en `graficas`.
+
 ### P1: Paralelo sobre toda la matriz
 En P1 se le agrega el paralelismo al serial. Usamos OpenMP para repartir el trabajo entre varios hilos. Se pone el #pragma omp parallel for para repartir las vueltas del ciclo entre los hilos, y esto solo funciona si las vueltas son independientes. Al terminar el parallel for, el programa espera a que todos los hilos acaben antes de seguir.
 
@@ -112,7 +114,7 @@ Para comprobar que el serial da el resultado correcto, se comparó contra el DBS
 | 40000 | 33 | 33 | 0 |
 | 80000 | 34 | 34 | 0 |
 
-No hubo ninguna diferencia. Solo se usaron estos tres tamaños porque sklearn guarda en memoria todos los vecinos de cada punto, y con 200000 puntos eso ocuparía alrededor de 6.6 GB. Como P1 y P2 dan exactamente las mismas etiquetas que el serial, también coinciden con sklearn.
+No hubo ninguna diferencia. Solo se muestran estos tres tamaños porque sklearn guarda en memoria todos los vecinos de cada punto, y con 200000 puntos eso ocupa alrededor de 7 GB, más de lo que le queda libre a la computadora de Miguel (7 GB de RAM en total). La celda de la libreta tiene escritos los 8 tamaños, así que en una computadora con más memoria se puede comprobar con todos. Como P1 y P2 dan exactamente las mismas etiquetas que el serial, también coinciden con sklearn.
 
 ### P1
 Speedup de P1 contra el serial con 200000 puntos:
@@ -130,7 +132,7 @@ Con 1 hilo P1 tarda prácticamente lo mismo que el serial, lo cual tiene sentido
 ![Speedup P1](graficas/speedup_p1_U.png)
 
 ### P2
-En P2 hay que separar dos efectos, el de k y el de los hilos.
+En P2 hay que separar dos efectos, el de k y el de los hilos. Se probó con todos los tamaños, con k = 2, 4, 8, 16, 32 y 64, y con las mismas cantidades de hilos que P1.
 
 El efecto de k se ve con 1 hilo, donde no hay paralelismo. Aun así P2 es más rápido que el serial, y en general más entre más grande es k. Speedup de P2 con 1 hilo contra el serial con 200000 puntos:
 
@@ -154,6 +156,68 @@ En la computadora de Miguel, pasar de 8 a 16 hilos mejora poco P2 con k = 64, y 
 
 ![Speedup P2 con 1 hilo](graficas/speedup_p2_un_hilo_U.png)
 ![Speedup P2 con tantos hilos como cores virtuales](graficas/speedup_p2_cores_U.png)
+
+### Serial contra P1
+Aquí están todos los tamaños. Cada celda tiene el tiempo promedio de P1 en segundos y, entre paréntesis, el speedup contra el serial de la misma computadora.
+
+José Luis:
+
+| Puntos | Serial (s) | P1, 1 hilo | P1, 2 hilos | P1, 4 hilos | P1, 8 hilos |
+|---|---|---|---|---|---|
+| 20000 | 0.223 | 0.209 s (1.06) | 0.123 s (1.81) | 0.095 s (2.35) | 0.096 s (2.31) |
+| 40000 | 0.437 | 0.428 s (1.02) | 0.261 s (1.68) | 0.208 s (2.10) | 0.213 s (2.06) |
+| 80000 | 0.997 | 0.874 s (1.14) | 0.518 s (1.92) | 0.430 s (2.32) | 0.456 s (2.19) |
+| 120000 | 1.353 | 1.315 s (1.03) | 0.763 s (1.77) | 0.719 s (1.88) | 0.711 s (1.90) |
+| 140000 | 1.601 | 1.654 s (0.97) | 1.113 s (1.44) | 0.966 s (1.66) | 0.891 s (1.80) |
+| 160000 | 1.821 | 1.970 s (0.92) | 1.077 s (1.69) | 1.020 s (1.79) | 0.980 s (1.86) |
+| 180000 | 2.064 | 2.077 s (0.99) | 1.175 s (1.76) | 1.091 s (1.89) | 1.107 s (1.86) |
+| 200000 | 2.292 | 2.271 s (1.01) | 1.259 s (1.82) | 1.208 s (1.90) | 1.220 s (1.88) |
+
+Miguel:
+
+| Puntos | Serial (s) | P1, 1 hilo | P1, 8 hilos | P1, 16 hilos | P1, 32 hilos |
+|---|---|---|---|---|---|
+| 20000 | 0.184 | 0.148 s (1.24) | 0.037 s (4.94) | 0.039 s (4.73) | 0.025 s (7.40) |
+| 40000 | 0.303 | 0.317 s (0.96) | 0.077 s (3.95) | 0.051 s (5.95) | 0.057 s (5.34) |
+| 80000 | 0.714 | 0.685 s (1.04) | 0.154 s (4.65) | 0.109 s (6.56) | 0.103 s (6.95) |
+| 120000 | 1.052 | 1.068 s (0.98) | 0.234 s (4.51) | 0.160 s (6.59) | 0.158 s (6.67) |
+| 140000 | 1.289 | 1.256 s (1.03) | 0.275 s (4.69) | 0.193 s (6.67) | 0.197 s (6.54) |
+| 160000 | 1.438 | 1.471 s (0.98) | 0.315 s (4.56) | 0.222 s (6.47) | 0.224 s (6.41) |
+| 180000 | 1.612 | 1.653 s (0.97) | 0.346 s (4.66) | 0.245 s (6.57) | 0.263 s (6.13) |
+| 200000 | 1.841 | 1.783 s (1.03) | 0.389 s (4.74) | 0.281 s (6.55) | 0.284 s (6.49) |
+
+Con 1 hilo P1 queda en cerca de 1 en todos los tamaños (entre 0.92 y 1.14 con José Luis, y entre 0.96 y 1.24 con Miguel), porque es el mismo algoritmo y solo se agrega la sobrecarga del paralelismo. Con José Luis el speedup se queda por debajo de 2 en todos los tamaños, y solo una corrida queda por debajo de la meta de 1.5: 2 hilos con 140000 puntos (1.44). Con Miguel todas las corridas con más de un hilo pasan la meta, desde 3.95 con 8 hilos hasta 7.40 con 32 hilos, y con 16 y 32 hilos el speedup casi no cambia entre 80000 y 200000 puntos, así que no crece con el tamaño.
+
+### Serial contra P2
+Aquí también están todos los tamaños. P2 depende de k y de los hilos, así que se muestran k = 4 y k = 64, con 1 hilo y con tantos hilos como cores virtuales (4 con José Luis y 16 con Miguel). Los demás valores de k y de hilos están en `datos/tiempos_p2_J.csv` y `datos/tiempos_p2_M.csv`.
+
+José Luis:
+
+| Puntos | Serial (s) | P2, k = 4, 1 hilo | P2, k = 4, 4 hilos | P2, k = 64, 1 hilo | P2, k = 64, 4 hilos |
+|---|---|---|---|---|---|
+| 20000 | 0.223 | 0.087 s (2.5) | 0.073 s (3.0) | 0.033 s (6.8) | 0.014 s (16.1) |
+| 40000 | 0.437 | 0.188 s (2.3) | 0.121 s (3.6) | 0.059 s (7.4) | 0.028 s (15.7) |
+| 80000 | 0.997 | 0.399 s (2.5) | 0.325 s (3.1) | 0.111 s (9.0) | 0.059 s (16.9) |
+| 120000 | 1.353 | 0.617 s (2.2) | 0.459 s (2.9) | 0.176 s (7.7) | 0.094 s (14.3) |
+| 140000 | 1.601 | 0.807 s (2.0) | 0.569 s (2.8) | 0.197 s (8.1) | 0.118 s (13.5) |
+| 160000 | 1.821 | 0.875 s (2.1) | 0.557 s (3.3) | 0.259 s (7.0) | 0.122 s (15.0) |
+| 180000 | 2.064 | 1.115 s (1.9) | 0.841 s (2.5) | 0.261 s (7.9) | 0.150 s (13.8) |
+| 200000 | 2.292 | 1.049 s (2.2) | 0.723 s (3.2) | 0.273 s (8.4) | 0.156 s (14.7) |
+
+Miguel:
+
+| Puntos | Serial (s) | P2, k = 4, 1 hilo | P2, k = 4, 16 hilos | P2, k = 64, 1 hilo | P2, k = 64, 16 hilos |
+|---|---|---|---|---|---|
+| 20000 | 0.184 | 0.072 s (2.6) | 0.044 s (4.1) | 0.025 s (7.5) | 0.009 s (19.8) |
+| 40000 | 0.303 | 0.153 s (2.0) | 0.081 s (3.7) | 0.050 s (6.0) | 0.018 s (16.8) |
+| 80000 | 0.714 | 0.325 s (2.2) | 0.164 s (4.3) | 0.099 s (7.2) | 0.024 s (29.2) |
+| 120000 | 1.052 | 0.521 s (2.0) | 0.285 s (3.7) | 0.153 s (6.9) | 0.036 s (29.6) |
+| 140000 | 1.289 | 0.649 s (2.0) | 0.304 s (4.2) | 0.184 s (7.0) | 0.040 s (32.3) |
+| 160000 | 1.438 | 0.768 s (1.9) | 0.363 s (4.0) | 0.234 s (6.2) | 0.051 s (28.0) |
+| 180000 | 1.612 | 0.515 s (3.1) | 0.273 s (5.9) | 0.158 s (10.2) | 0.035 s (46.4) |
+| 200000 | 1.841 | 0.574 s (3.2) | 0.281 s (6.6) | 0.173 s (10.6) | 0.034 s (54.5) |
+
+P2 es más rápido que el serial en todas las configuraciones de las tablas, incluso con 1 hilo. Con k = 4 y 1 hilo el speedup es de entre 1.9 y 3.2, y con k = 64 y 1 hilo es de entre 6.0 y 10.6, así que dividir más el plano ayuda aunque no haya paralelismo. Con los cores virtuales y k = 64 el speedup es de entre 13.5 y 16.9 con José Luis y de entre 16.8 y 54.5 con Miguel. Con Miguel, 180000 y 200000 puntos salen más altos que los demás tamaños por la variación que se comentó en la sección de P2.
 
 ### Comparación entre P1 y P2
 Las dos versiones pasan la meta de speedup de 1.5 en las dos computadoras. P2 fue mucho más rápida en tiempo total, pero sobre todo porque al dividir el plano en particiones cada punto se compara contra menos puntos, no por los hilos. En la computadora de Miguel, P1 fue la que mejor aprovechó los hilos, porque reparte puntos y no zonas, entonces a cada hilo le toca un trabajo parecido. En la de José Luis las dos se quedan por debajo de 2 por los 2 núcleos físicos. En P2 el reparto depende de cuántos puntos caen en cada partición, y con estos datos queda muy disparejo.
@@ -180,7 +244,7 @@ Las dos versiones paralelas superan la meta de speedup de 1.5 en las dos computa
 
 P2 fue la más rápida, pero hay que leer bien por qué. La mayor parte de su ventaja viene de dividir el plano: aun con 1 hilo, con k = 64 es 8.4 veces más rápida que el serial en la computadora de José Luis y 10.6 en la de Miguel, porque cada punto se compara contra los puntos de su lista y no contra todos. Los hilos le aportan menos, porque las particiones quedan con cantidades de puntos muy distintas y k limita cuántos hilos pueden trabajar a la vez. P1, en cambio, fue la que mejor aprovechó los hilos en la de Miguel, porque a cada hilo le toca un trabajo parecido.
 
-También vimos que el hardware pone el límite. En la de José Luis el speedup de los hilos no pasa de cerca de 2, porque solo tiene 2 núcleos físicos, y usar más hilos que cores no mejoró, pero en la de Miguel sí, P1 pasó de 4.74 con 8 hilos a 6.55 con 16.
+También vimos que el hardware pone el límite. En la de José Luis el speedup de los hilos no pasa de cerca de 2, porque solo tiene 2 núcleos físicos, y usar más hilos que cores virtuales no mejoró. En la de Miguel el speedup sí sube hasta llegar a los cores virtuales, P1 pasó de 4.74 con 8 hilos a 6.55 con 16, pero con 32 hilos, que es el doble de sus cores, ya no mejora (6.49).
 
 Por último, con tiempos de pocos milisegundos las mediciones se vuelven ruidosas, por ejemplo P1 en la de José Luis, que con 200000 puntos y 8 hilos dio un speedup de 1.47 en una corrida y de 1.88 en otra, con el mismo programa y los mismos datos. Por eso promediar 10 repeticiones, hacer una corrida de calentamiento y correr sin otros programas abiertos fue importante para que los resultados fueran confiables.
 
