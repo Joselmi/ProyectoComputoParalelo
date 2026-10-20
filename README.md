@@ -189,7 +189,6 @@ Siguiendo los lineamientos de IEEE y de Elsevier que vienen en las instrucciones
 
 La usamos como apoyo para:
 * Proponer la estructura de los programas y revisar errores en el código.
-* Hacer las visualizaciones de la libreta: las gráficas de clasificación, de tiempo y de speedup.
 * Mejorar la redacción y ordenar partes de este documento.
 
 Para usarla de forma responsable:
